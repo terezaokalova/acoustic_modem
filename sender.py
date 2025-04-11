@@ -88,7 +88,7 @@ class SenderGUI:
         self.sent_log.see(tk.END)
 
     def play_audio(self, waveform, duration):
-        # play the waveform using a callback to output stream; update progress bar accordingly
+        # play the waveform using a callback to output stream & update progress bar
         self.status_label.config(text="Transmitting...")
         total_samples = len(waveform)
         def callback(outdata, frames, time_info, status):
