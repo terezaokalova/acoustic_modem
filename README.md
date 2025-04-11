@@ -12,28 +12,27 @@ The listener.py module implements the reception of messages via its a Tkinter in
 ### Goertzel Algorithm
 To extract tone information during demodulation, I adopted the Goertzel algorithm, which efficiently computes the magnitude of a specific frequency component without having to calculate a full FFT.
 
-First, given a block of N samples and a target frequency, the bin index corresponding to that frequency is calculated by:
-
+First, given a block of N samples and a target frequency, the bin index corresponding to that frequency is calculated by:\\
 k = int(0.5 + N * (target_freq/sample_rate))
 <!-- k = int(0.5 + N * (target_freq/sample_rate)) -->
 
-Next, the angular frequency ω and the coefficient are computed using:
+Next, the angular frequency ω and the coefficient are computed using:\\
 ω = 2π * k/N,  coeff = 2cos(ω)
 <!-- ω = 2π * k/N,  coeff = 2cos(ω) -->
 
-The algorithm processes the samples via the recurrence relation:
+The algorithm processes the samples via the recurrence relation:\\
 q(n) = s(n) + coeff * q(n-1) - q(n-2)
 <!-- q(n) = s(n) + coeff * q(n-1) - q(n-2) -->
 with initial conditions q(-1) = 0 and q(-2) = 0.
 
-After processing the N samples, the magnitude of the target frequency is determined using:
+After processing the N samples, the magnitude of the target frequency is determined using:\\
 magnitude = sqrt(q(N-1)^2 + q(N-2)^2 - coeff * q(N-1) * q(N-2))
 
 ### FEC with Hamming Codes
 I implemented optional forward error correction (FEC) using Hamming codes. It starts by splitting the bitstream into 4‑bit nibbles. For each nibble, three parity bits are computed using XOR operations as follows:
 <!-- p_1 = d_1 \oplus d_2 \oplus d_4, \quad p_2 = d_1 \oplus d_3 \oplus d_4, \quad p_3 = d_2 \oplus d_3 \oplus d_4 -->
-p_1 = d_1 ⊕ d_2 ⊕ d_4
-p_2 = d_1 ⊕ d_3 ⊕ d_4
+p_1 = d_1 ⊕ d_2 ⊕ d_4\\
+p_2 = d_1 ⊕ d_3 ⊕ d_4\\
 p_3 = d_2 ⊕ d_3 ⊕ d_4
  
 The 7‑bit code word is then formed by arranging these bits as:
