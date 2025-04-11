@@ -19,6 +19,8 @@ The M-ary FSK approach can be toggled on/off via the sender interface, hence pre
 
 While this change maintains the same symbol rate and bandwidth, since the system now needs to distinguish between more signal levels, the noise tolerance becomes moderately compromised. However, as long as the frequencies are well-separated (and frequency spacing is implemented), the 4-FSK implementation shall be robust to noise.
 
+Building off of this, I consequently explored higher-order M-ary FSK modulation schemes beyond 4-FSK to further increase transmission speed. I implemented 8-FSK (using 8 distinct frequencies to encode 3 bits per symbol) and 16-FSK (using 16 frequencies to encode 4 bits per symbol). In particular, I extended the frequency sets with sufficiently far-apart spaced tones and modified the Goertzel algorithm to process multiple frequencies simultaneously. While these higher-order schemes should theoretically lead to 3× and 4× speed improvements over binary FSK, they ended up failing at the decoding stage, even with longer symbol duration settings. It appears that the closer spacing between frequencies (or the wider bandwidth required) make accurate discrimination more difficult, so I ended up reverting to the 4-FSK version.
+
 
 ### Sender Module
 
@@ -90,6 +92,10 @@ In the sender interface, enter your message, adjust the transmission parameters 
 ## Bottlenecks and Next Steps
 
 While current implementation includes error detection (CRC-8) and error correction (Hamming codes), they're disabled by default due to several persisting problems that need to be addressed:
+
+### Expanding to Higher M-ary Settings
+
+I tried higher-order M-ary FSK modulation (8-FSK and 16-FSK) to achieve even greater speed improvements, but encountered limitations likely related to frequency resolution and possible spectral leakage, causing the decoding to fail. Other DSP techniques like adaptive equalization or better filtering could make these higher-order schemes more viable in future iterations. Alternativelly, different modulation approaches like Phase Shift Keying (PSK) or Quadrature Amplitude Modulation (QAM) might work.
 
 ### Hamming
 
