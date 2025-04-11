@@ -338,6 +338,7 @@ def modulate_bits(bit_list: list, config: ModemConfig) -> np.ndarray:
     logging.info(f"Waveform generated: {len(bit_list)} bits -> {len(waveform)} samples")
     return waveform
 
+# previous - binary FSK
 # def modulate_bits(bit_list: list, config: ModemConfig) -> np.ndarray:
 #     # map each bit to corresponding tone (with extra emphasis on last 16 bits) and add silence at end
 #     N = config.N
@@ -398,6 +399,7 @@ def demodulate_bits(waveform: np.ndarray, config: ModemConfig) -> list:
             
     return out_bits
 
+# previous - binary FSK
 # def demodulate_bits(waveform: np.ndarray, config: ModemConfig) -> list:
 #     # split waveform into symbols and use Goertzel to decide bit value per symbol
 #     N = config.N
@@ -472,6 +474,8 @@ class StreamingDecoder:
                 bit = 1 if e1 > e0 * self.config.threshold_factor else 0
                 self.collected_bits.append(bit)
                 self._update_state_machine()
+    
+    # previous - binary FSK
     # def process_samples(self, new_samples: np.ndarray):
     #     # add new audio samples to buffer and extract symbols sequentially
     #     self.buffer = np.concatenate((self.buffer, new_samples))
@@ -564,27 +568,6 @@ class StreamingDecoder:
         out = self.messages[:]
         self.messages = []
         return out
-    
-    # not used
-    # def debug_bit_accuracy(original_bits, received_bits, window_size=20):
-    #     # utility: compare two bit sequences and print first error and context
-    #     min_len = min(len(original_bits), len(received_bits))
-    #     first_error = None
-    #     for i in range(min_len):
-    #         if original_bits[i] != received_bits[i]:
-    #             first_error = i
-    #             break
-    #     if first_error is None:
-    #         print("No bit errors found in compared section")
-    #         return
-    #     start = max(0, first_error - window_size//2)
-    #     end = min(min_len, first_error + window_size//2)
-    #     print(f"First error at position {first_error} (bit value: {original_bits[first_error]} vs {received_bits[first_error]})")
-    #     print("Original:", "".join(str(b) for b in original_bits[start:end]))
-    #     print("Received:", "".join(str(b) for b in received_bits[start:end]))
-    #     print("Errors:  ", "".join(" " if original_bits[i] == received_bits[i] else "^" for i in range(start, end)))
-    #     errors = sum(1 for i in range(min_len) if original_bits[i] != received_bits[i])
-    #     print(f"Total error rate: {errors/min_len:.2%} ({errors}/{min_len} bits)")
 
 if __name__ == "__main__":
     # tests for protocol functions with several messages
