@@ -155,29 +155,6 @@ class ListenerGUI:
         self.canvas.draw()
         max_mag = np.max(magnitude) if len(magnitude) > 0 else 0
 
-    
-    # previous - binary FSK
-    # def update_spectrum(self, samples: np.ndarray):
-    #     # compute FFT of the latest audio chunk and update plot with target frequency markers
-    #     N = len(samples)
-    #     if N == 0:
-    #         return
-    #     window = np.hanning(N)
-    #     fft_vals = np.fft.rfft(samples * window)
-    #     fft_freqs = np.fft.rfftfreq(N, 1.0 / self.config.sample_rate)
-    #     magnitude = np.abs(fft_vals)
-    #     self.ax.clear()
-    #     self.ax.plot(fft_freqs, magnitude)
-    #     self.ax.set_title("Incoming Audio Spectrum")
-    #     self.ax.set_xlabel("Frequency (Hz)")
-    #     self.ax.set_ylabel("Magnitude")
-    #     self.ax.set_xlim(0, 2000)
-    #     self.ax.axvline(self.config.freq0, color="red", linestyle="--", label="Freq0")
-    #     self.ax.axvline(self.config.freq1, color="green", linestyle="--", label="Freq1")
-    #     self.ax.legend()
-    #     self.canvas.draw()
-    #     max_mag = np.max(magnitude) if len(magnitude) > 0 else 0
-
 if __name__ == "__main__":
     root = tk.Tk()
     app = ListenerGUI(root)

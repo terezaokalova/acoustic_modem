@@ -18,13 +18,11 @@ import sounddevice as sd
 # new - 4-FSK
 class ModemConfig:
     def __init__(self):
-        # Original config parameters remain
         self.sample_rate = 44100
         self.symbol_duration = 0.1
         self.N = int(self.sample_rate * self.symbol_duration)
         
-        # Replace binary FSK frequencies with 4-FSK frequencies
-        # These frequencies need to be spaced far enough apart to be distinguishable
+        # frequencies need to be spaced far enough apart to be distinguishable
         self.freq00 = 500.0   # For bits 00
         self.freq01 = 900.0   # For bits 01
         self.freq10 = 1300.0  # For bits 10
@@ -38,42 +36,19 @@ class ModemConfig:
         self.use_crc = False
         self.header_length_bits = 8
         
-        # For backward compatibility, keep original freq0/freq1
-        # (some code might still reference these)
+        # for backward compatibility, keep original freq0/freq1
         self.freq0 = self.freq00
         self.freq1 = self.freq11
         
-        # Add a flag to enable/disable M-ary FSK
+        # flag to enable/disable M-ary FSK
         self.use_mary_fsk = True
         self.bits_per_symbol = 2  # 4-FSK encodes 2 bits per symbol
         
-        # Threshold for bit decision in demodulation
+        # threshold for bit decision in demodulation
         self.threshold_factor = 0.5
         self.overlap = 0
 
 DEFAULT_CONFIG = ModemConfig()
-
-# previous - binary FSK
-# class ModemConfig:
-#     def __init__(self):
-#         # modem settings: sample rate, symbol duration, tone frequencies, etc.
-#         self.sample_rate = 44100
-#         # self.symbol_duration = 0.1 # anything shorter gets decoded as gibberish
-#         self.symbol_duration = 0.07
-#         self.N = int(self.sample_rate * self.symbol_duration)  # samples per symbol (≈4410)
-#         # both outside typical frequency of ambient noise; sufficiently far apart
-#         self.freq0 = 600.0            # tone frequency for bit 0
-#         self.freq1 = 1600.0           # tone frequency for bit 1
-#         self.volume = 0.8
-#         # how the listener knows that there is an incoming message
-#         self.preamble = "11111000001111100000"
-#         self.sync_pattern = "11001100"
-#         # FEC/CRC logic for error correctionneeds further development
-#         self.use_hamming = False
-#         self.use_crc = False
-#         self.header_length_bits = 8
-#         self.threshold_factor = 0.5  # decide bit '1' if energy(freq1) > energy(freq0)
-#         self.overlap = 0
 
 # Utility functions for Text <-> Bits conversion
 
@@ -266,19 +241,54 @@ def decode_message(bits: list[int],
 # Frequency Detection via Goertzel Algorithm
 
 def goertzel_mag(samples: np.ndarray, target_freq: float, sample_rate: int) -> float:
-    # compute specific frequency magnitude using Goertzel
+    # check if we're processing one frequency or multiple
+    if isinstance(target_freq, (list, tuple, np.ndarray)):
+        return _goertzel_multi_freq(samples, target_freq, sample_rate)
+    
+    # original single-frequency implementation
     N = len(samples)
     k = int(0.5 + (N * target_freq) / sample_rate)
     omega = 2.0 * np.pi * k / N
     cosine = np.cos(omega)
+    sine = np.sin(omega)
     coeff = 2.0 * cosine
-    q0 = q1 = q2 = 0.0
+    
+    # Process samples
+    q1 = q2 = 0.0
     for s in samples:
         q0 = coeff * q1 - q2 + s
         q2 = q1
         q1 = q0
-    mag = np.sqrt(q1*q1 + q2*q2 - q1*q2*coeff)
-    return mag
+        
+    # calculate magnitude using real and imaginary parts
+    real = q1 - q2 * cosine
+    imag = q2 * sine
+    return np.sqrt(real*real + imag*imag)
+
+def _goertzel_multi_freq(samples: np.ndarray, frequencies: list, sample_rate: int) -> list:
+    # helper to calculate magnitude for multiple frequencies in one pass"
+    N = len(samples)
+    results = []
+    
+    # Process each frequency
+    for freq in frequencies:
+        k = int(0.5 + (N * freq) / sample_rate)
+        omega = 2.0 * np.pi * k / N
+        cosine = np.cos(omega)
+        sine = np.sin(omega)
+        coeff = 2.0 * cosine
+        
+        q1 = q2 = 0.0
+        for s in samples:
+            q0 = coeff * q1 - q2 + s
+            q2 = q1
+            q1 = q0
+            
+        real = q1 - q2 * cosine
+        imag = q2 * sine
+        results.append(np.sqrt(real*real + imag*imag))
+        
+    return results
 
 # Modulation/Demodulation
 
@@ -289,23 +299,24 @@ def generate_tone(freq: float, N: int, sr: int, volume: float) -> np.ndarray:
     window = np.hanning(N)
     return (tone * window * volume).astype(np.float32)
 
+# m-ary alr
 def modulate_bits(bit_list: list, config: ModemConfig) -> np.ndarray:
-    # Map each bit pair to corresponding tone
+    # map each bit pair to corresponding tone
     N = config.N
     wave_chunks = []
     
     if config.use_mary_fsk:
-        # Create tones for 4-FSK
+        # create tones for 4-FSK
         tone00 = generate_tone(config.freq00, N, config.sample_rate, config.volume)
         tone01 = generate_tone(config.freq01, N, config.sample_rate, config.volume)
         tone10 = generate_tone(config.freq10, N, config.sample_rate, config.volume)
         tone11 = generate_tone(config.freq11, N, config.sample_rate, config.volume)
         
-        # Pad bit_list if its length is odd
+        # pad bit_list if its length is odd
         if len(bit_list) % 2 != 0:
             bit_list = bit_list + [0]
             
-        # Process bits in pairs
+        # process bits in pairs
         for i in range(0, len(bit_list), 2):
             bit_pair = (bit_list[i] << 1) | bit_list[i+1]
             if bit_pair == 0:
@@ -317,11 +328,11 @@ def modulate_bits(bit_list: list, config: ModemConfig) -> np.ndarray:
             else:  # bit_pair == 3
                 wave_chunks.append(tone11)
                 
-            # Add emphasis on last few symbols (similar to original code)
-            if i >= len(bit_list) - 32:  # Last 16 symbols (32 bits)
+            # emphasis on last few symbols
+            if i >= len(bit_list) - 32:  # last 16 symbols (32 bits)
                 wave_chunks[-1] = wave_chunks[-1].copy() * 1.1
     else:
-        # Original binary FSK implementation
+        # original binary FSK implementation
         tone0 = generate_tone(config.freq0, N, config.sample_rate, config.volume)
         tone1 = generate_tone(config.freq1, N, config.sample_rate, config.volume)
         for i, bit in enumerate(bit_list):
@@ -331,31 +342,12 @@ def modulate_bits(bit_list: list, config: ModemConfig) -> np.ndarray:
             else:
                 wave_chunks.append(tone1 if bit == 1 else tone0)
                 
-    # Add trailing silence
+    # trailing silence
     silence = np.zeros(N // 4, dtype=np.float32)
     wave_chunks.append(silence)
     waveform = np.concatenate(wave_chunks)
     logging.info(f"Waveform generated: {len(bit_list)} bits -> {len(waveform)} samples")
     return waveform
-
-# previous - binary FSK
-# def modulate_bits(bit_list: list, config: ModemConfig) -> np.ndarray:
-#     # map each bit to corresponding tone (with extra emphasis on last 16 bits) and add silence at end
-#     N = config.N
-#     wave_chunks = []
-#     tone0 = generate_tone(config.freq0, N, config.sample_rate, config.volume)
-#     tone1 = generate_tone(config.freq1, N, config.sample_rate, config.volume)
-#     for i, bit in enumerate(bit_list):
-#         if i >= len(bit_list) - 16:
-#             tone = tone1.copy() * 1.1 if bit == 1 else tone0.copy() * 1.1
-#             wave_chunks.append(tone)
-#         else:
-#             wave_chunks.append(tone1 if bit == 1 else tone0)
-#     silence = np.zeros(N // 4, dtype=np.float32)
-#     wave_chunks.append(silence)
-#     waveform = np.concatenate(wave_chunks)
-#     logging.info(f"Waveform generated: {len(bit_list)} bits -> {len(waveform)} samples")
-#     return waveform
 
 def demodulate_bits(waveform: np.ndarray, config: ModemConfig) -> list:
     N = config.N
@@ -363,22 +355,19 @@ def demodulate_bits(waveform: np.ndarray, config: ModemConfig) -> list:
     out_bits = []
     
     if config.use_mary_fsk:
+        # frequencies list for 4-FSK
+        freq_list = [config.freq00, config.freq01, config.freq10, config.freq11]
+        
         for i in range(num_symbols):
             segment = waveform[i*N:(i+1)*N]
             window = np.hanning(len(segment))
             windowed_segment = segment * window
             
-            # Calculate energy at each frequency
-            e00 = goertzel_mag(windowed_segment, config.freq00, config.sample_rate)
-            e01 = goertzel_mag(windowed_segment, config.freq01, config.sample_rate)
-            e10 = goertzel_mag(windowed_segment, config.freq10, config.sample_rate)
-            e11 = goertzel_mag(windowed_segment, config.freq11, config.sample_rate)
-            
-            # Find the frequency with maximum energy
-            energies = [e00, e01, e10, e11]
+            # multi-frequency Goertzel algorithm
+            energies = goertzel_mag(windowed_segment, freq_list, config.sample_rate)
             max_idx = np.argmax(energies)
             
-            # Convert to bit pair
+            # convert to bit pair
             if max_idx == 0:   # freq00 has max energy
                 out_bits.extend([0, 0])
             elif max_idx == 1: # freq01 has max energy
@@ -388,7 +377,7 @@ def demodulate_bits(waveform: np.ndarray, config: ModemConfig) -> list:
             else:              # freq11 has max energy
                 out_bits.extend([1, 1])
     else:
-        # Original binary FSK implementation
+        # original binary FSK implementation
         for i in range(num_symbols):
             segment = waveform[i*N:(i+1)*N]
             window = np.hanning(len(segment))
@@ -398,21 +387,6 @@ def demodulate_bits(waveform: np.ndarray, config: ModemConfig) -> list:
             out_bits.append(1 if e1 > e0 * config.threshold_factor else 0)
             
     return out_bits
-
-# previous - binary FSK
-# def demodulate_bits(waveform: np.ndarray, config: ModemConfig) -> list:
-#     # split waveform into symbols and use Goertzel to decide bit value per symbol
-#     N = config.N
-#     num_symbols = len(waveform) // N
-#     out_bits = []
-#     for i in range(num_symbols):
-#         segment = waveform[i*N:(i+1)*N]
-#         window = np.hanning(len(segment))
-#         windowed_segment = segment * window
-#         e0 = goertzel_mag(windowed_segment, config.freq0, config.sample_rate)
-#         e1 = goertzel_mag(windowed_segment, config.freq1, config.sample_rate)
-#         out_bits.append(1 if e1 > e0 * config.threshold_factor else 0)
-#     return out_bits
 
 # Streaming Decoder
 
@@ -442,15 +416,12 @@ class StreamingDecoder:
             
             # Process symbol based on FSK mode
             if self.config.use_mary_fsk:
-                # Compute energies at all target frequencies using Goertzel
+                # Compute energies at all target frequencies using multi-frequency Goertzel
                 windowed = symbol * np.hanning(len(symbol))
-                e00 = goertzel_mag(windowed, self.config.freq00, self.config.sample_rate)
-                e01 = goertzel_mag(windowed, self.config.freq01, self.config.sample_rate)
-                e10 = goertzel_mag(windowed, self.config.freq10, self.config.sample_rate)
-                e11 = goertzel_mag(windowed, self.config.freq11, self.config.sample_rate)
+                freq_list = [self.config.freq00, self.config.freq01, self.config.freq10, self.config.freq11]
+                energies = goertzel_mag(windowed, freq_list, self.config.sample_rate)
                 
                 # Find the frequency with maximum energy
-                energies = [e00, e01, e10, e11]
                 max_idx = np.argmax(energies)
                 
                 # Convert to bit pair
@@ -474,22 +445,7 @@ class StreamingDecoder:
                 bit = 1 if e1 > e0 * self.config.threshold_factor else 0
                 self.collected_bits.append(bit)
                 self._update_state_machine()
-    
-    # previous - binary FSK
-    # def process_samples(self, new_samples: np.ndarray):
-    #     # add new audio samples to buffer and extract symbols sequentially
-    #     self.buffer = np.concatenate((self.buffer, new_samples))
-    #     while len(self.buffer) >= self.symbol_samples:
-    #         symbol = self.buffer[:self.symbol_samples]
-    #         step = max(1, self.symbol_samples - self.overlap)
-    #         self.buffer = self.buffer[step:]
-    #         # compute energies at both target frequencies using Goertzel
-    #         windowed = symbol * np.hanning(len(symbol))
-    #         e0 = goertzel_mag(windowed, self.config.freq0, self.config.sample_rate)
-    #         e1 = goertzel_mag(windowed, self.config.freq1, self.config.sample_rate)
-    #         bit = 1 if e1 > e0 * self.config.threshold_factor else 0
-    #         self.collected_bits.append(bit)
-    #         self._update_state_machine()
+
 
     def _update_state_machine(self):
         # state machine: SEARCH for preamble, then COLLECT until full message is received, then DECODE

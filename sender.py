@@ -119,18 +119,6 @@ class SenderGUI:
         except Exception as e:
             messagebox.showerror("Parameter Error", str(e))
 
-    # previous - binary FSK
-    # def update_config(self):
-    #     # update modem config using input parameters from GUI
-    #     try:
-    #         self.config.volume = float(self.volume_var.get())
-    #         self.config.symbol_duration = float(self.symdur_var.get())
-    #         self.config.N = int(self.config.sample_rate * self.config.symbol_duration)
-    #         self.config.freq0 = float(self.freq0_var.get())
-    #         self.config.freq1 = float(self.freq1_var.get())
-    #     except Exception as e:
-    #         messagebox.showerror("Parameter Error", str(e))
-
     def send_message(self):
         # read text, update config, encode and modulate message, update spectrum, and start audio playback
         msg = self.message_text.get("1.0", tk.END).strip()
