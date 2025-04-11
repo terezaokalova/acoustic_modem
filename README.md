@@ -3,24 +3,36 @@ In this project, I developed an acoustic modem system that converts text into mo
 
 ## Architecture
 ### Protocol Module
-The protocol.py module handles all signal processing and digital data conversion routines. I implemented functions to convert text into a bit stream and vice versa using 8‑bit ASCII (big‑endian) conversion. The data is framed by prepending a fixed 20‑bit preamble, an 8‑bit synchronization pattern, and an 8‑bit header that indicates the message length. This framing ensures that the receiver synchronizes with the incoming signal and knows how many bits to expect. I also implemented optional error correction using Hamming encoding and error detection using a CRC‑8 checksum (not used for now). For modulation, pure sine wave tones are generated with Hanning windowing to minimize spectral leakage, while for demodulation, the Goertzel algorithm efficiently extracts the energy at the target frequencies. A streaming decoder state machine is then used to process continuous audio data and handle real-time reconstruction of messages.
 
-#### M-ary FSK Implementation (in replacement of original binary FSK)
-To increase transmission speed, I switched to  M-ary FSK modulation (in particular 4-FSK). My original binary FSK implementation used two frequencies to encode a single bit per symbol (600 Hz for bit 0, 1600 Hz for bit 1), the M-ary FSK approach uses four distinct frequencies to encode two bits per symbol; my choices were as follows:
+The `protocol.py` module handles all signal processing and digital data conversion routines. I implemented functions to convert text into a bit stream and vice versa using 8‑bit ASCII (big‑endian) conversion. The data is framed by prepending a fixed 20‑bit preamble, an 8‑bit synchronization pattern, and an 8‑bit header that indicates the message length. This framing ensures that the receiver synchronizes with the incoming signal and knows how many bits to expect. I also implemented optional error correction using Hamming encoding and error detection using a CRC‑8 checksum (not used for now). For modulation, pure sine wave tones are generated with Hanning windowing to minimize spectral leakage, while for demodulation, the Goertzel algorithm efficiently extracts the energy at the target frequencies. A streaming decoder state machine is then used to process continuous audio data and handle real‑time reconstruction of messages.
 
-- 500 Hz corresponds to the bit pair 00
-- 900 Hz corresponds to the bit pair 01
-- 1300 Hz corresponds to the bit pair 10
-- 1700 Hz corresponds to the bit pair 11
+#### M‑ary FSK Implementation (in replacement of original binary FSK)
 
-This effectively doubles the data rate without altering the symbol duration (which I found to compromise decoding quality, especially with increased messages length). In particular, my modified `modulate_bits` function now processes bits in pairs and maps each pair to one of four frequencies and the `demodulate_bits` and `StreamingDecoder.process_samples` functions now detect the dominant frequency among the four possibilities and convert it back to a bit pair.
+To increase transmission speed without altering the symbol duration, I replaced the original binary FSK—which used two frequencies (600 Hz for bit 0 and 1600 Hz for bit 1) to encode a single bit per symbol—with an M‑ary FSK approach. In the current implementation, I support both 4‑FSK and 8‑FSK modulation schemes:
 
-The M-ary FSK approach can be toggled on/off via the sender interface, hence preserving backward compatibility with the original binary FSK implementation.
+ **4‑FSK**  
+  Uses four distinct frequencies to encode two bits per symbol, with the frequency mapping being:  
+  - 500 Hz corresponds to the bit pair 00  
+  - 900 Hz corresponds to the bit pair 01  
+  - 1300 Hz corresponds to the bit pair 10  
+  - 1700 Hz corresponds to the bit pair 11  
 
-While this change maintains the same symbol rate and bandwidth, since the system now needs to distinguish between more signal levels, the noise tolerance becomes moderately compromised. However, as long as the frequencies are well-separated (and frequency spacing is implemented), the 4-FSK implementation shall be robust to noise.
+  In this mode, the `modulate_bits` function processes the bit stream in pairs and maps each pair to one of the four frequencies. The `demodulate_bits` function and `StreamingDecoder.process_samples` method detect the dominant frequency among the four possibilities and convert it back to a bit pair.
+  
+ **8‑FSK**  
+  Uses eight distinct frequencies to encode three bits per symbol; the frequencies are set as follows:  
+  - 500 Hz corresponds to the bit triplet 000  
+  - 800 Hz corresponds to 001  
+  - 1100 Hz corresponds to 010  
+  - 1400 Hz corresponds to 011  
+  - 1700 Hz corresponds to 100  
+  - 2000 Hz corresponds to 101  
+  - 2300 Hz corresponds to 110  
+  - 2600 Hz corresponds to 111  
 
-Building off of this, I consequently explored higher-order M-ary FSK modulation schemes beyond 4-FSK to further increase transmission speed. I implemented 8-FSK (using 8 distinct frequencies to encode 3 bits per symbol) and 16-FSK (using 16 frequencies to encode 4 bits per symbol). In particular, I extended the frequency sets with sufficiently far-apart spaced tones and modified the Goertzel algorithm to process multiple frequencies simultaneously. While these higher-order schemes should theoretically lead to 3× and 4× speed improvements over binary FSK, they ended up failing at the decoding stage, even with longer symbol duration settings. It appears that the closer spacing between frequencies (or the wider bandwidth required) make accurate discrimination more difficult, so I ended up reverting to the 4-FSK version.
+  With 8‑FSK (current default), the bit stream is processed in groups of three and each group is mapped to its corresponding frequency. The demodulation routines evaluate eight frequency components using the Goertzel algorithm and decode the bits from the index of the dominant frequency. My pipeline allows for toggling between the modes, preserving backward compatibility with the original binary FSK implementation.
 
+While both modes maintain the same symbol duration and total bandwidth, the increased number of signal levels in M‑ary FSK makes the system slightly more sensitive to noise, and I had to make sure the frequencies are sufficiently spaced.
 
 ### Sender Module
 
@@ -92,10 +104,6 @@ In the sender interface, enter your message, adjust the transmission parameters 
 ## Bottlenecks and Next Steps
 
 While current implementation includes error detection (CRC-8) and error correction (Hamming codes), they're disabled by default due to several persisting problems that need to be addressed:
-
-### Expanding to Higher M-ary Settings
-
-I tried higher-order M-ary FSK modulation (8-FSK and 16-FSK) to achieve even greater speed improvements, but encountered limitations likely related to frequency resolution and possible spectral leakage, causing the decoding to fail. Other DSP techniques like adaptive equalization or better filtering could make these higher-order schemes more viable in future iterations. Alternativelly, different modulation approaches like Phase Shift Keying (PSK) or Quadrature Amplitude Modulation (QAM) might work.
 
 ### Hamming
 
