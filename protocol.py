@@ -76,7 +76,6 @@ def hamming_encode_nibble(nibble: list) -> list:
     p3 = d2 ^ d3 ^ d4
     return [p1, p2, d1, p3, d2, d3, d4]
 
-# def hamming_decode_block(block: list) -> (list, bool):
 def hamming_decode_block(block: list[int]) -> tuple[list[int], bool]:
     # decode 7-bit block: use syndrome to detect and correct single-bit errors
     p1, p2, d1, p3, d2, d3, d4 = block
@@ -109,7 +108,6 @@ def apply_fec(bits: list, config: ModemConfig) -> list:
         fec_bits.extend(hamming_encode_nibble(nibble))
     return fec_bits
 
-# def remove_fec(bits: list, config: ModemConfig) -> (list, int):
 def remove_fec(bits: list, config: ModemConfig) -> tuple[list[int], int]:
     # decode bits in groups of 7 and count corrections made
     if not config.use_hamming:
@@ -160,7 +158,7 @@ def encode_message(text: str, config: ModemConfig = DEFAULT_CONFIG) -> list:
     header = []
     for i in range(7, -1, -1):
         header.append((length >> i) & 1)
-    # apply FEC if enabled; then, append CRC if enabled
+    # apply FEC if enabled; then, append CRC 
     data_bits = apply_fec(raw_bits, config)
     if config.use_crc:
         crc_bits = compute_crc8(data_bits)
@@ -172,7 +170,10 @@ def encode_message(text: str, config: ModemConfig = DEFAULT_CONFIG) -> list:
     logging.info(f"Message encoded: '{text}' -> {len(final_bits)} bits")
     return final_bits
 
-def decode_message(bits: list, config: ModemConfig = DEFAULT_CONFIG) -> (str, bool):
+
+def decode_message(bits: list[int],
+                   config: ModemConfig = DEFAULT_CONFIG
+                  ) -> tuple[str, bool]:
     # verify preamble; if missing, return error
     preamble_len = len(config.preamble)
     if bits[:preamble_len] != [int(b) for b in config.preamble]:
@@ -224,7 +225,7 @@ def decode_message(bits: list, config: ModemConfig = DEFAULT_CONFIG) -> (str, bo
     logging.info(f"Message decoded: '{text}'")
     return text, True
 
-# --- Frequency Detection via Goertzel Algorithm
+# Frequency Detection via Goertzel Algorithm
 
 def goertzel_mag(samples: np.ndarray, target_freq: float, sample_rate: int) -> float:
     # compute specific frequency magnitude using Goertzel
@@ -241,7 +242,7 @@ def goertzel_mag(samples: np.ndarray, target_freq: float, sample_rate: int) -> f
     mag = np.sqrt(q1*q1 + q2*q2 - q1*q2*coeff)
     return mag
 
-# --- Modulation/Demodulation
+# Modulation/Demodulation
 
 def generate_tone(freq: float, N: int, sr: int, volume: float) -> np.ndarray:
     # generate sine wave for given frequency and apply Hanning window
@@ -282,7 +283,7 @@ def demodulate_bits(waveform: np.ndarray, config: ModemConfig) -> list:
         out_bits.append(1 if e1 > e0 * config.threshold_factor else 0)
     return out_bits
 
-# --- Streaming Decoder
+# Streaming Decoder
 
 class StreamingDecoder:
     def __init__(self, config: ModemConfig = DEFAULT_CONFIG):
@@ -329,7 +330,7 @@ class StreamingDecoder:
                 self._decode_message()
 
     def _search_for_preamble(self):
-        # scan collected bits for preamble with 90% match; then, read header to determine message length
+        # scan collected bits for preamble with 90% match, then read header to determine message length
         pre = [int(b) for b in self.config.preamble]
         pre_len = len(pre)
         sy_len = len(self.config.sync_pattern)
@@ -392,28 +393,29 @@ class StreamingDecoder:
         self.messages = []
         return out
     
-    def debug_bit_accuracy(original_bits, received_bits, window_size=20):
-        # utility: compare two bit sequences and print first error and context
-        min_len = min(len(original_bits), len(received_bits))
-        first_error = None
-        for i in range(min_len):
-            if original_bits[i] != received_bits[i]:
-                first_error = i
-                break
-        if first_error is None:
-            print("No bit errors found in compared section")
-            return
-        start = max(0, first_error - window_size//2)
-        end = min(min_len, first_error + window_size//2)
-        print(f"First error at position {first_error} (bit value: {original_bits[first_error]} vs {received_bits[first_error]})")
-        print("Original:", "".join(str(b) for b in original_bits[start:end]))
-        print("Received:", "".join(str(b) for b in received_bits[start:end]))
-        print("Errors:  ", "".join(" " if original_bits[i] == received_bits[i] else "^" for i in range(start, end)))
-        errors = sum(1 for i in range(min_len) if original_bits[i] != received_bits[i])
-        print(f"Total error rate: {errors/min_len:.2%} ({errors}/{min_len} bits)")
+    # not used
+    # def debug_bit_accuracy(original_bits, received_bits, window_size=20):
+    #     # utility: compare two bit sequences and print first error and context
+    #     min_len = min(len(original_bits), len(received_bits))
+    #     first_error = None
+    #     for i in range(min_len):
+    #         if original_bits[i] != received_bits[i]:
+    #             first_error = i
+    #             break
+    #     if first_error is None:
+    #         print("No bit errors found in compared section")
+    #         return
+    #     start = max(0, first_error - window_size//2)
+    #     end = min(min_len, first_error + window_size//2)
+    #     print(f"First error at position {first_error} (bit value: {original_bits[first_error]} vs {received_bits[first_error]})")
+    #     print("Original:", "".join(str(b) for b in original_bits[start:end]))
+    #     print("Received:", "".join(str(b) for b in received_bits[start:end]))
+    #     print("Errors:  ", "".join(" " if original_bits[i] == received_bits[i] else "^" for i in range(start, end)))
+    #     errors = sum(1 for i in range(min_len) if original_bits[i] != received_bits[i])
+    #     print(f"Total error rate: {errors/min_len:.2%} ({errors}/{min_len} bits)")
 
 if __name__ == "__main__":
-    # basic tests for protocol functions with several messages
+    # tests for protocol functions with several messages
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     logging.info("Running protocol unit tests...")
     
