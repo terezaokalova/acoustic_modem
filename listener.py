@@ -74,7 +74,7 @@ class ListenerGUI:
         logging.info(f"Available audio devices:")
         for i, device in enumerate(devices):
             logging.info(f"Device {i}: {device['name']}")
-        device_id = None  # default device
+        device_id = None  # default device (i'm using Mac)
         self.stream = sd.InputStream(
             device=device_id,  
             channels=1,
