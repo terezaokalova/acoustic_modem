@@ -126,6 +126,65 @@ class ListenerGUI:
         self.text_area.config(state="disabled")
         self.text_area.see(tk.END)
 
+    # higher modes for FSK
+    # def update_spectrum(self, samples: np.ndarray):
+    #     N = len(samples)
+    #     if N == 0:
+    #         return
+    #     window = np.hanning(N)
+    #     fft_vals = np.fft.rfft(samples * window)
+    #     fft_freqs = np.fft.rfftfreq(N, 1.0 / self.config.sample_rate)
+    #     magnitude = np.abs(fft_vals)
+    #     self.ax.clear()
+    #     self.ax.plot(fft_freqs, magnitude)
+    #     self.ax.set_title("Incoming Audio Spectrum")
+    #     self.ax.set_xlabel("Frequency (Hz)")
+    #     self.ax.set_ylabel("Magnitude")
+        
+    #     # Adjust xlim based on FSK mode
+    #     if self.config.fsk_mode == 16:
+    #         self.ax.set_xlim(0, 3500)  # Higher range for 16-FSK
+    #     else:
+    #         self.ax.set_xlim(0, 2500)  # Standard range
+        
+    #     # Add vertical lines for each frequency based on FSK mode
+    #     if not self.config.use_mary_fsk:
+    #         # Binary FSK
+    #         self.ax.axvline(self.config.freq0, color="red", linestyle="--", label="Freq0")
+    #         self.ax.axvline(self.config.freq1, color="green", linestyle="--", label="Freq1")
+        
+    #     elif self.config.fsk_mode == 4:
+    #         # 4-FSK
+    #         self.ax.axvline(self.config.freq00, color="red", linestyle="--", label="Freq00")
+    #         self.ax.axvline(self.config.freq01, color="green", linestyle="--", label="Freq01")
+    #         self.ax.axvline(self.config.freq10, color="blue", linestyle="--", label="Freq10")
+    #         self.ax.axvline(self.config.freq11, color="purple", linestyle="--", label="Freq11")
+        
+    #     elif self.config.fsk_mode == 8:
+    #         # 8-FSK
+    #         colors = ["red", "orange", "yellow", "green", "blue", "indigo", "violet", "purple"]
+    #         freqs = [
+    #             self.config.freq000, self.config.freq001, self.config.freq010, self.config.freq011,
+    #             self.config.freq100, self.config.freq101, self.config.freq110, self.config.freq111
+    #         ]
+    #         for i, (freq, color) in enumerate(zip(freqs, colors)):
+    #             label = f"Freq{i:03b}"
+    #             self.ax.axvline(freq, color=color, linestyle="--", label=label)
+        
+    #     elif self.config.fsk_mode == 16:
+    #         # 16-FSK - Show only a few key frequencies to avoid cluttering
+    #         freqs = self.config.freq_16fsk
+    #         markers = [0, 5, 10, 15]  # Selected indices to mark
+    #         colors = ["red", "green", "blue", "purple"]
+            
+    #         for i, color in zip(markers, colors):
+    #             label = f"F{i:04b}"
+    #             self.ax.axvline(freqs[i], color=color, linestyle="--", label=label)
+        
+    #     self.ax.legend(fontsize='small', ncol=2 if self.config.fsk_mode >= 8 else 1)
+    #     self.canvas.draw()
+    
+    # 4-FSK only
     def update_spectrum(self, samples: np.ndarray):
         # compute FFT of the latest audio chunk and update plot with target frequency markers
         N = len(samples)

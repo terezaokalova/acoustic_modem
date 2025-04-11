@@ -59,7 +59,7 @@ class SenderGUI:
         tk.Label(param_frame, text="Freq1 (Hz):").grid(row=1, column=2, sticky="e")
         tk.Entry(param_frame, textvariable=self.freq1_var, width=5).grid(row=1, column=3, padx=5)
         
-        # 4-FSK controls
+        # 4-FSK controls - given this, the higher modes from protocol won't show up
         tk.Label(param_frame, text="Use 4-FSK:").grid(row=2, column=0, sticky="e")
         tk.Checkbutton(param_frame, variable=self.use_mary_var).grid(row=2, column=1, padx=5)
         
